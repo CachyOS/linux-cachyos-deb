@@ -30,11 +30,10 @@ To use the script, follow these steps:
 2. Make the script executable with `chmod +x kernel_builder.sh`.
 3. Run the script with `./kernel_builder.sh`.
 4. Follow the on-screen prompts to select your desired kernel version and configurations, for:
-
--- Choose the kernel version.
--- Enable or disable CachyOS optimizations.
--- Configure the CPU scheduler, LLVM LTO, tick rate, NR_CPUS, Hugepages, LRU, and other system optimizations.
--- Select the preempt type and tick type for further system tuning.
+   - Choose the kernel version.
+   - Enable or disable CachyOS optimizations.
+   - Configure the CPU scheduler, LLVM LTO, tick rate, NR_CPUS, Hugepages, LRU, and other system optimizations.
+   - Select the preempt type and tick type for further system tuning.
 
 ## Advanced Configurations
 
