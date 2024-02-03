@@ -380,26 +380,26 @@ do_things() {
     ## List of CachyOS schedulers
     case "$_cpusched_config" in
     cachyos) # CachyOS Scheduler (BORE + SCHED-EXT)
-        source+=("${_patchsource}/sched/0001-sched-ext.patch"
+        patches+=("${_patchsource}/sched/0001-sched-ext.patch"
             "${_patchsource}/sched/0001-bore-cachy.patch") ;;
     bore) ## BORE Scheduler
-        source+=("${_patchsource}/sched/0001-bore-cachy.patch") ;;
+        patches+=("${_patchsource}/sched/0001-bore-cachy.patch") ;;
     rt) ## EEVDF with RT patches
-        source+=("${_patchsource}/misc/0001-rt.patch"
+        patches+=("${_patchsource}/misc/0001-rt.patch"
             linux-cachyos-rt.install) ;;
     rt-bore) ## RT with BORE Scheduler
-        source+=("${_patchsource}/misc/0001-rt.patch"
+        patches+=("${_patchsource}/misc/0001-rt.patch"
             "${_patchsource}/sched/0001-bore-cachy-rt.patch"
             linux-cachyos-rt.install) ;;
     hardened) ## Hardened Patches with BORE Scheduler
-        source+=("${_patchsource}/sched/0001-bore-cachy.patch"
+        patches+=("${_patchsource}/sched/0001-bore-cachy.patch"
             "${_patchsource}/misc/0001-hardened.patch") ;;
     sched-ext) ## SCHED-EXT
-        source+=("${_patchsource}/sched/0001-sched-ext.patch") ;;
+        patches+=("${_patchsource}/sched/0001-sched-ext.patch") ;;
     esac
 
     # download and apply patches on source
-    for i in "${source[@]}"; do
+    for i in "${patches[@]}"; do
         echo "Downloading and applying $i"
         wget -c $i
         patch -p1 <$(basename $i)
