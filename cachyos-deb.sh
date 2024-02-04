@@ -3,24 +3,43 @@
 # Maintainer: Laio O. Seman <laio@iee.org>
 
 # Initialize variables to store user choices
-_cachyos_config="yes"
-_cpusched_config="cachyos"
-_llvm_lto_config="none"
-_tick_rate_config="500"
-_numa_config=""
-_nr_cpus_config=""
-_hugepage_config=""
-_lru_config=""
-_o3_optimization_config="yes"
-_performance_governor_config=""
-
-_cpusched_selection="none"
+_cachyos_config="CACHYOS"
+_cpusched_selection="cachyos"
 _llvm_lto_selection="none"
 _tick_rate="500"
-_numa="none"
+_numa="enable"
+_hugepage="madvise"
+_lru_config="standard"
+_o3_optimization="yes"
+_performance_governor="yes"
 _nr_cpus="32"
 _bbr3="yes"
 _march="native"
+_preempt="full"
+_tick_type="full"
+
+check_deps() {
+
+    # List of dependencies to check
+    dependencies=(libncurses-dev gawk flex bison openssl libssl-dev dkms libelf-dev libudev-dev libpci-dev libiberty-dev autoconf llvm)
+
+    # Function to check if a package is installed
+    is_installed() {
+        dpkg -l | grep "^ii" | grep -q "$1"
+        return $?
+    }
+
+    # Iterate over dependencies and check each one
+    for dep in "${dependencies[@]}"; do
+        if is_installed "$dep"; then
+            echo "Package $dep is installed."
+        else
+            echo "Package $dep is NOT installed."
+            return 0
+        fi
+    done
+
+}
 
 # Check if GCC is installed
 check_gcc() {
@@ -191,11 +210,11 @@ configure_tick_type() {
 }
 
 configure_preempt_type() {
-    _preempt_type=$(whiptail --title "Preempt Type Configuration" --radiolist \
+    _preempt=$(whiptail --title "Preempt Type Configuration" --radiolist \
         "Choose Preempt Type (use space to select):" 15 60 3 \
-        "voluntary" "Voluntary Preemption" $([ "$_preempt_type" = "voluntary" ] && echo "ON" || echo "OFF") \
-        "preempt" "Preemptible Kernel" $([ "$_preempt_type" = "preempt" ] && echo "ON" || echo "OFF") \
-        "none" "Do not configure Preempt Type" $([ "$_preempt_type" = "none" ] && echo "ON" || echo "OFF") \
+        "voluntary" "Voluntary Preemption" $([ "$_preempt" = "voluntary" ] && echo "ON" || echo "OFF") \
+        "preempt" "Preemptible Kernel" $([ "$_preempt" = "preempt" ] && echo "ON" || echo "OFF") \
+        "none" "Do not configure Preempt Type" $([ "$_preempt" = "none" ] && echo "ON" || echo "OFF") \
         3>&1 1>&2 2>&3)
 }
 
@@ -351,8 +370,8 @@ do_things() {
 
     # define _major as the first two digits of the kernel version
     _major=$(echo $_kv_name | grep -oP '^\K[^\.]+')
-    
-    # middle number 
+
+    # middle number
     _mid=$(echo $_kv_name | grep -oP '^\d+\.\K[^\.]+')
 
     # download kernel to linux.tar.xz
@@ -378,7 +397,7 @@ do_things() {
     fi
 
     ## List of CachyOS schedulers
-    case "$_cpusched_config" in
+    case "$_cpusched_selection" in
     cachyos) # CachyOS Scheduler (BORE + SCHED-EXT)
         patches+=("${_patchsource}/sched/0001-sched-ext.patch"
             "${_patchsource}/sched/0001-bore-cachy.patch") ;;
@@ -418,21 +437,33 @@ do_things() {
     sched-ext) scripts/config -e SCHED_CLASS_EXT ;;
     esac
 
+    case "$_preempt" in
+    full) scripts/config -e PREEMPT_BUILD -d PREEMPT_NONE -d PREEMPT_VOLUNTARY -e PREEMPT -e PREEMPT_COUNT -e PREEMPTION -e PREEMPT_DYNAMIC ;;
+    voluntary) scripts/config -e PREEMPT_BUILD -d PREEMPT_NONE -e PREEMPT_VOLUNTARY -d PREEMPT -e PREEMPT_COUNT -e PREEMPTION -d PREEMPT_DYNAMIC ;;
+    server) scripts/config -e PREEMPT_NONE_BUILD -e PREEMPT_NONE -d PREEMPT_VOLUNTARY -d PREEMPT -d PREEMPTION -d PREEMPT_DYNAMIC ;;
+    esac
+
     # Apply LLVM LTO configuration
-    case "$_llvm_lto_config" in
+    case "$_llvm_lto_selection" in
     thin) scripts/config -e LTO_CLANG_THIN ;;
     full) scripts/config -e LTO_CLANG_FULL ;;
     none) scripts/config -d LTO_CLANG_THIN -d LTO_CLANG_FULL ;;
     esac
 
     # Apply tick rate configuration
-    case "$_HZ_ticks" in
+    case "$_tick_rate" in
     100 | 250 | 500 | 600 | 750 | 1000)
-        scripts/config -d HZ_300 -e "HZ_${_HZ_ticks}" --set-val HZ "${_HZ_ticks}"
+        scripts/config -d HZ_300 -e "HZ_${_tick_rate}" --set-val HZ "${_tick_rate}"
         ;;
     300)
         scripts/config -e HZ_300 --set-val HZ 300
         ;;
+    esac
+
+    case "$_tick_type" in
+    perodic) scripts/config -d NO_HZ_IDLE -d NO_HZ_FULL -d NO_HZ -d NO_HZ_COMMON -e HZ_PERIODIC ;;
+    idle) scripts/config -d HZ_PERIODIC -d NO_HZ_FULL -e NO_HZ_IDLE -e NO_HZ -e NO_HZ_COMMON ;;
+    full) scripts/config -d HZ_PERIODIC -d NO_HZ_IDLE -d CONTEXT_TRACKING_FORCE -e NO_HZ_FULL_NODEF -e NO_HZ_FULL -e NO_HZ -e NO_HZ_COMMON -e CONTEXT_TRACKING ;;
     esac
 
     # Apply NUMA configuration
@@ -476,9 +507,6 @@ do_things() {
 
 }
 
-
-
-
 # call init script
 # display warning message saying this is a beta version
 
@@ -488,6 +516,9 @@ whiptail --title "CachyOS Kernel Configuration" --msgbox "This is a beta version
 whiptail --title "Secure Boot Warning" --yesno "This script will disable secure boot. Do you want to continue?" 8 78
 
 init_script
+
+# run the check_deps function and break if it returns 0
+check_deps || exit 1
 
 # Main menu
 while :; do
@@ -508,7 +539,7 @@ while :; do
         "12" "Exit" 3>&1 1>&2 2>&3)
 
     exitstatus=$?
-    if [ $exitstatus = 255 ]; then
+    if [ $exitstatus != 0 ]; then
         # Exit the script if the user presses Esc
         break
     fi
