@@ -8,15 +8,15 @@ _cpusched_selection="cachyos"
 _llvm_lto_selection="none"
 _tick_rate="500"
 _numa="enable"
-_hugepage="full"
+_hugepage="always"
 _lru_config="standard"
 _o3_optimization="yes"
 _performance_governor="no"
 _nr_cpus="320"
 _bbr3="yes"
 _march="native"
-_preempt="full"
-_tick_type="full"
+_preempt="preempt"
+_tick_type="nohz_full"
 
 check_deps() {
 
@@ -399,8 +399,7 @@ do_things() {
     ## List of CachyOS schedulers
     case "$_cpusched_selection" in
     cachyos) # CachyOS Scheduler (BORE + SCHED-EXT)
-        patches+=("${_patchsource}/sched/0001-sched-ext.patch"
-            "${_patchsource}/sched/0001-bore-cachy.patch") ;;
+        patches+=("${_patchsource}/sched/0001-sched-ext.patch") ;;
     bore) ## BORE Scheduler
         patches+=("${_patchsource}/sched/0001-bore-cachy.patch") ;;
     rt) ## EEVDF with RT patches
