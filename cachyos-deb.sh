@@ -21,7 +21,7 @@ _tick_type="nohz_full"
 check_deps() {
 
     # List of dependencies to check
-    dependencies=(libncurses-dev curl gawk flex bison openssl libssl-dev dkms libelf-dev libudev-dev libpci-dev libiberty-dev autoconf llvm bc)
+    dependencies=(git libncurses-dev curl gawk flex bison openssl libssl-dev dkms libelf-dev libudev-dev libpci-dev libiberty-dev autoconf llvm bc)
 
     # Function to check if a package is installed
     is_installed() {
@@ -228,6 +228,7 @@ configure_system_optimizations() {
     local vma_status=$([ "$_vma" = "yes" ] && echo "ON" || echo "OFF")
     local damon_status=$([ "$_damon" = "yes" ] && echo "ON" || echo "OFF")
     local numa_status=$([ "$_numa" = "enable" ] && echo "ON" || echo "OFF")
+    local zfs_status=$([ "$_zfs" = "yes" ] && echo "ON" || echo "OFF")
 
     # Display checklist
     local selection
@@ -240,6 +241,7 @@ configure_system_optimizations() {
         "VMA" "" $vma_status \
         "DAMON" "" $damon_status \
         "NUMA" "" $numa_status \
+        "ZFS" "" $zfs_status \
         3>&1 1>&2 2>&3)
 
     # Update configurations based on the selection
@@ -349,16 +351,64 @@ EOF
         rm -rf ${HEADERS_PKG_DIR}
     }
 
+    package_zfs() {
+
+        ZFS_PKG_DIR=zfs-${KERNEL_VERSION}
+
+        # Create directory structure for ZFS package
+        mkdir -p ${ZFS_PKG_DIR}/DEBIAN
+
+        # Create control file for ZFS package
+        cat >zfs-${KERNEL_VERSION}/DEBIAN/control <<EOF
+Package: zfs-${KERNEL_VERSION}
+Version: ${KERNEL_PKG_VERSION}
+Section: kernel
+Priority: optional
+Architecture: ${ARCH}
+Maintainer: CachyOs
+Description: ZFS for custom compiled Linux Kernel ${KERNEL_VERSION}
+EOF
+
+        # Copy the ZFS modules
+        install -m644 module/*.ko "${ZFS_PKG_DIR}/lib/modules/${KERNEL_VERSION}/extra"
+        find "$ZFS_PKG_DIR" -name '*.ko' -exec zstd --rm -10 {} +
+
+        # Package the ZFS modules
+        fakeroot dpkg-deb --build ${ZFS_PKG_DIR}
+
+        # Clean up ZFS package directory
+        rm -rf ${ZFS_PKG_DIR}
+    }
+
+
     # Compile the kernel and modules
     make -j$(nproc)
     mkdir -p /tmp/kernel-modules
     make modules_install INSTALL_MOD_PATH=/tmp/kernel-modules
+
+    if [ "$_zfs" == "yes" ]; then
+        LINUX_DIR=$(pwd)
+        git clone https://github.com/openzfs/zfs --depth 1
+        cd zfs
+
+        ./autogen.sh
+        ./configure --prefix=/usr --sysconfdir=/etc --sbindir=/usr/bin \
+            --libdir=/usr/lib --datadir=/usr/share --includedir=/usr/include \
+            --with-udevdir=/lib/udev --libexecdir=/usr/lib/zfs --with-config=kernel \
+            --with-linux=$(LINUX_DIR)
+        make -j$(nproc)
+        cd $LINUX_DIR
+    fi
 
     # Package the kernel
     package_kernel
 
     # Package the headers
     package_headers
+    if [ "$_zfs" == "yes" ]; then
+        package_zfs
+    fi
+    
 }
 
 
