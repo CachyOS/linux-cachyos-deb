@@ -339,7 +339,7 @@ Description: Headers for custom compiled Linux Kernel ${KERNEL_VERSION}
 EOF
 
         # Copy the kernel headers
-        cp -r /usr/src/linux-headers-${KERNEL_VERSION}/* ${HEADERS_PKG_DIR}/usr/src/linux-headers-${KERNEL_VERSION}/
+        make headers_install INSTALL_HDR_PATH=${HEADERS_PKG_DIR}/usr/src/linux-headers-${KERNEL_VERSION}
 
         # Package the headers
         fakeroot dpkg-deb --build ${HEADERS_PKG_DIR}
@@ -360,13 +360,15 @@ EOF
     package_headers
 }
 
-_kv_url=$(curl -s https://www.kernel.org | grep -A 1 'id="latest_link"' | awk 'NR==2' | grep -oP 'href="\K[^"]+')
 
-# extract only the version number
-_kv_name=$(echo $_kv_url | grep -oP 'linux-\K[^"]+')
-# remove the .tar.xz extension
-_kv_name=$(basename $_kv_name .tar.xz)
 do_things() {
+
+    _kv_url=$(curl -s https://www.kernel.org | grep -A 1 'id="latest_link"' | awk 'NR==2' | grep -oP 'href="\K[^"]+')
+
+    # extract only the version number
+    _kv_name=$(echo $_kv_url | grep -oP 'linux-\K[^"]+')
+    # remove the .tar.xz extension
+    _kv_name=$(basename $_kv_name .tar.xz)
 
     # define _major as the first two digits of the kernel version
     _major=$(echo $_kv_name | grep -oP '^\K[^\.]+')
@@ -506,6 +508,22 @@ do_things() {
 
 }
 
+# check if any argument was passed
+
+if [ -n "$1" ]; then
+    case "$1" in
+    --help | -h)
+        echo "Usage: $0"
+        echo "Compile a custom Linux kernel and package it into a .deb file for CachyOS"
+        exit 0
+        ;;
+    --build | -b)
+        debing
+        exit 0
+        ;;
+    esac
+fi
+
 # call init script
 # display warning message saying this is a beta version
 
@@ -517,7 +535,7 @@ whiptail --title "Secure Boot Warning" --yesno "This script will disable secure 
 init_script
 
 # run the check_deps function and break if it returns 0
-check_deps || exit 1
+check_deps
 
 # Main menu
 while :; do
