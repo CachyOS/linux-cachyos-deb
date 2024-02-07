@@ -21,7 +21,7 @@ _tick_type="nohz_full"
 check_deps() {
 
     # List of dependencies to check
-    dependencies=(libncurses-dev gawk flex bison openssl libssl-dev dkms libelf-dev libudev-dev libpci-dev libiberty-dev autoconf llvm)
+    dependencies=(libncurses-dev curl gawk flex bison openssl libssl-dev dkms libelf-dev libudev-dev libpci-dev libiberty-dev autoconf llvm)
 
     # Function to check if a package is installed
     is_installed() {
@@ -32,10 +32,11 @@ check_deps() {
     # Iterate over dependencies and check each one
     for dep in "${dependencies[@]}"; do
         if is_installed "$dep"; then
-            echo "Package $dep is installed."
+            #echo "Package $dep is installed."
+            continue
         else
-            echo "Package $dep is NOT installed."
-            return 0
+            #echo "Package $dep is NOT installed."
+            sudo apt install -y "$dep"
         fi
     done
 
@@ -266,7 +267,7 @@ configure_system_optimizations() {
 choose_kernel_option() {
 
     # show kernel version to the user in a box and ask to confirm
-    whiptail --title "Kernel Version" --msgbox "The latest kernel version is $_kv" 8 78
+    whiptail --title "Kernel Version" --msgbox "The latest kernel version is $_kv_name" 8 78
 
 }
 
@@ -362,13 +363,6 @@ EOF
 
 
 do_things() {
-
-    _kv_url=$(curl -s https://www.kernel.org | grep -A 1 'id="latest_link"' | awk 'NR==2' | grep -oP 'href="\K[^"]+')
-
-    # extract only the version number
-    _kv_name=$(echo $_kv_url | grep -oP 'linux-\K[^"]+')
-    # remove the .tar.xz extension
-    _kv_name=$(basename $_kv_name .tar.xz)
 
     # define _major as the first two digits of the kernel version
     _major=$(echo $_kv_name | grep -oP '^\K[^\.]+')
@@ -524,8 +518,18 @@ if [ -n "$1" ]; then
     esac
 fi
 
+_kv_url=$(curl -s https://www.kernel.org | grep -A 1 'id="latest_link"' | awk 'NR==2' | grep -oP 'href="\K[^"]+')
+
+# extract only the version number
+_kv_name=$(echo $_kv_url | grep -oP 'linux-\K[^"]+')
+# remove the .tar.xz extension
+_kv_name=$(basename $_kv_name .tar.xz)
+
 # call init script
 # display warning message saying this is a beta version
+
+# run the check_deps function and store the result in dep_status
+check_deps
 
 whiptail --title "CachyOS Kernel Configuration" --msgbox "This is a beta version of the CachyOS Kernel Configuration script. Use at your own risk." 8 78
 
@@ -534,8 +538,6 @@ whiptail --title "Secure Boot Warning" --yesno "This script will disable secure 
 
 init_script
 
-# run the check_deps function and break if it returns 0
-check_deps
 
 # Main menu
 while :; do
