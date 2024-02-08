@@ -23,15 +23,9 @@ check_deps() {
     # List of dependencies to check
     dependencies=(git libncurses-dev curl gawk flex bison openssl libssl-dev dkms libelf-dev libudev-dev libpci-dev libiberty-dev autoconf llvm bc rsync)
 
-    # Function to check if a package is installed
-    is_installed() {
-        dpkg -l | grep "^ii" | grep -q "$1"
-        return $?
-    }
-
     # Iterate over dependencies and check each one
     for dep in "${dependencies[@]}"; do
-        if is_installed "$dep"; then
+        if dpkg -s "$dep" 2>/dev/null 1>&2; then
             #echo "Package $dep is installed."
             continue
         else
